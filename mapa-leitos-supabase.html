@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Leitos — UPA/RUE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #f0f2f5;
+  --bg2:      #ffffff;
+  --bg3:      #f5f7fa;
+  --border:   #d0d7e0;
+  --border2:  #e2e8f0;
+  --text:     #1a202c;
+  --text2:    #4a5568;
+  --text3:    #a0aec0;
+
+  --green:    #2d8a4e;
+  --green-bg: rgba(45,138,78,.1);
+  --red:      #c53030;
+  --red-bg:   rgba(197,48,48,.1);
+  --yellow:   #b7791f;
+  --yellow-bg:rgba(183,121,31,.1);
+  --blue:     #2b6cb0;
+  --blue-bg:  rgba(43,108,176,.08);
+
+  --sv:  #c53030;
+  --sa:  #b7791f;
+  --is:  #6b46c1;
+  --ia:  #2b6cb0;
+  --ip:  #2d8a4e;
+  --me:  #2c7a7b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+/* ─── HEADER ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+
+.title {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.01em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.header-right { display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text2);
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: all .15s;
+}
+.btn:hover { border-color: var(--text2); color: var(--text); }
+.btn-export { border-color: var(--green); color: var(--green); }
+.btn-export:hover { background: var(--green-bg); }
+
+/* ─── STAT PILLS ─── */
+.stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  min-width: 120px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.stat-occ::before  { background: var(--red); }
+.stat-free::before { background: var(--green); }
+.stat-blk::before  { background: var(--yellow); }
+.stat-tot::before  { background: var(--blue); }
+
+.stat-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-occ  .stat-num { color: var(--red); }
+.stat-free .stat-num { color: var(--green); }
+.stat-blk  .stat-num { color: var(--yellow); }
+.stat-tot  .stat-num { color: var(--blue); }
+
+.stat-label { font-size: 12px; color: var(--text2); letter-spacing: .02em; }
+.stat-pct   { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+/* ─── FILTERS ─── */
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+select {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text2);
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+}
+select:focus { border-color: var(--blue); color: var(--text); }
+
+/* ─── SETOR BLOCKS ─── */
+.setores-grid { display: flex; flex-direction: column; gap: 14px; }
+
+.setor-block {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  animation: fadeUp .3s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.setor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg3);
+}
+
+.setor-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.setor-stripe { width: 3px; height: 18px; border-radius: 2px; }
+
+.setor-mini-stats { display: flex; gap: 6px; }
+
+.mini-pill {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.mp-occ  { background: var(--red-bg);    color: var(--red);    }
+.mp-free { background: var(--green-bg);  color: var(--green);  }
+.mp-blk  { background: var(--yellow-bg); color: var(--yellow); }
+
+/* ─── TABLE ─── */
+table { width: 100%; border-collapse: collapse; }
+
+th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 9px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg3);
+  white-space: nowrap;
+}
+
+td {
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border2);
+  vertical-align: middle;
+  color: var(--text2);
+  font-size: 14px;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f8fafc; }
+
+.td-leito {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text3);
+  white-space: nowrap;
+}
+
+.td-pac {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  max-width: 260px;
+}
+
+.td-obs {
+  font-size: 13px;
+  color: var(--text3);
+  max-width: 200px;
+}
+
+/* ─── BADGES ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.badge:hover { filter: brightness(.92); }
+
+.badge-occ  { background: var(--red-bg);    color: var(--red);    border: 1px solid rgba(197,48,48,.25); }
+.badge-free { background: var(--green-bg);  color: var(--green);  border: 1px solid rgba(45,138,78,.25); }
+.badge-blk  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(183,121,31,.25); }
+
+.badge-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.badge-occ  .badge-dot { background: var(--red); }
+.badge-free .badge-dot { background: var(--green); }
+.badge-blk  .badge-dot { background: var(--yellow); }
+
+/* ─── ACOMPANHANTE ─── */
+.ac-yes { color: var(--green); font-size: 16px; font-weight: 700; }
+.ac-no  { color: var(--text3); font-size: 16px; }
+.ac-na  { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+
+/* ─── EDIT BTN ─── */
+.edit-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text3);
+  padding: 5px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all .15s;
+  line-height: 1;
+}
+.edit-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 26px;
+  width: 440px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  animation: modalIn .2s ease both;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header { margin-bottom: 20px; }
+
+.modal-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+.modal-title {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.field-group { margin-bottom: 14px; }
+
+.field-group label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 5px;
+}
+
+.field-group input,
+.field-group select,
+.field-group textarea {
+  width: 100%;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+.field-group input:focus,
+.field-group select:focus,
+.field-group textarea:focus { border-color: var(--blue); }
+.field-group textarea { resize: vertical; min-height: 72px; }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border2);
+}
+
+.btn-save {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  padding: 9px 20px;
+  border-radius: 7px;
+  border: 1px solid var(--green);
+  background: var(--green-bg);
+  color: var(--green);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-save:hover { background: var(--green); color: #fff; }
+
+.btn-cancel {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  padding: 9px 20px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-cancel:hover { border-color: var(--text2); color: var(--text); }
+
+/* ─── EMPTY ─── */
+.empty {
+  padding: 40px;
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: var(--text3);
+  letter-spacing: .05em;
+}
+
+/* ─── PROGRESS BAR ─── */
+.occ-bar-wrap {
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  margin-top: 5px;
+  width: 100%;
+  overflow: hidden;
+}
+.occ-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--red);
+  transition: width .4s ease;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="eyebrow">Sistema de gestão hospitalar</div>
+    <div class="title">Mapa de Leitos — UPA/RUE</div>
+    <div class="subtitle" id="data-hora"></div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-export" onclick="exportCSV()">↓ Exportar CSV</button>
+  </div>
+</div>
+
+<div class="stats" id="stats-bar"></div>
+
+<div class="filters">
+  <span class="filter-label">Setor</span>
+  <select id="filter-setor" onchange="render()">
+    <option value="">Todos</option>
+  </select>
+  <span class="filter-label" style="margin-left:8px">Ocupação</span>
+  <select id="filter-occ" onchange="render()">
+    <option value="">Todos</option>
+    <option value="Leito Ocupado">Ocupado</option>
+    <option value="Leito Disponível">Disponível</option>
+    <option value="Leito Bloqueado">Bloqueado</option>
+  </select>
+</div>
+
+<div class="setores-grid" id="table-body"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-eyebrow" id="modal-eyebrow"></div>
+      <div class="modal-title" id="modal-title">Editar leito</div>
+    </div>
+    <div class="field-group">
+      <label>Ocupação</label>
+      <select id="edit-occ">
+        <option>Leito Ocupado</option>
+        <option>Leito Disponível</option>
+        <option>Leito Bloqueado</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Paciente</label>
+      <input type="text" id="edit-pac" placeholder="Nome completo, idade">
+    </div>
+    <div class="field-group">
+      <label>Acompanhante</label>
+      <select id="edit-ac">
+        <option>Não</option>
+        <option>Sim</option>
+        <option>Não se Aplica</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Observações</label>
+      <textarea id="edit-obs" placeholder="Observações clínicas ou operacionais..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveEdit()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SETOR_COLOR = {
+  "Sala Vermelha":        "var(--sv)",
+  "Sala Amarela":         "var(--sa)",
+  "Isolamento":           "var(--is)",
+  "Internação Adulto":    "var(--ia)",
+  "Internação Pediátrica":"var(--ip)",
+  "Medicação":            "var(--me)"
+};
+
+/*
+  ATENÇÃO:
+  Use a URL base do projeto, SEM /rest/v1 no final.
+  Exemplo correto: https://xxxxxxxx.supabase.co
+*/
+const SUPABASE_URL = 'https://msdugsbtodlizowykgjw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zZHVnc2J0b2RsaXpvd3lrZ2p3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTc5NzMsImV4cCI6MjA5NDEzMzk3M30.iO_LMlMEPZfmhhYK6uX7aG-dFkU_wC57LA37SrElHTk';
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let data = [];
+let editIdx = null;
+
+function now() {
+  return new Date().toLocaleString('pt-BR', {
+    day:'2-digit',
+    month:'2-digit',
+    year:'numeric',
+    hour:'2-digit',
+    minute:'2-digit'
+  });
+}
+
+function mapLeito(row) {
+  return {
+    id: row.id,
+    s: row.setor,
+    l: row.leito,
+    o: row.ocupacao,
+    p: row.paciente || '',
+    ac: row.acompanhante || 'Não',
+    obs: row.observacoes || ''
+  };
+}
+
+async function carregarLeitos() {
+  const { data: rows, error } = await supabaseClient
+    .from('leitos')
+    .select('*')
+    .order('id', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar leitos:', error);
+    document.getElementById('table-body').innerHTML =
+      '<div class="empty">Erro ao carregar os leitos do Supabase.</div>';
+    return;
+  }
+
+  data = rows.map(mapLeito);
+  atualizarFiltroSetores();
+  document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+  render();
+}
+
+function atualizarFiltroSetores() {
+  const sel = document.getElementById('filter-setor');
+  const valorAtual = sel.value;
+
+  sel.innerHTML = '<option value="">Todos</option>';
+
+  const setores = [...new Set(data.map(r => r.s))];
+
+  setores.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s;
+    o.textContent = s;
+    sel.appendChild(o);
+  });
+
+  if (setores.includes(valorAtual)) {
+    sel.value = valorAtual;
+  }
+}
+
+function escutarAlteracoesRealtime() {
+  supabaseClient
+    .channel('realtime-leitos')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'leitos' },
+      () => {
+        carregarLeitos();
+      }
+    )
+    .subscribe();
+}
+
+function badgeClass(o) {
+  return o === 'Leito Ocupado' ? 'badge-occ' : o === 'Leito Bloqueado' ? 'badge-blk' : 'badge-free';
+}
+
+function badgeLabel(o) {
+  return o === 'Leito Ocupado' ? 'Ocupado' : o === 'Leito Bloqueado' ? 'Bloqueado' : 'Disponível';
+}
+
+function renderStats() {
+  const occ  = data.filter(r => r.o === 'Leito Ocupado').length;
+  const free = data.filter(r => r.o === 'Leito Disponível').length;
+  const blk  = data.filter(r => r.o === 'Leito Bloqueado').length;
+  const total = data.length;
+  const pct = total ? Math.round(occ / total * 100) : 0;
+
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat-card stat-occ"><div class="stat-num">${occ}</div><div class="stat-label">Ocupados</div></div>
+    <div class="stat-card stat-free"><div class="stat-num">${free}</div><div class="stat-label">Disponíveis</div></div>
+    <div class="stat-card stat-blk"><div class="stat-num">${blk}</div><div class="stat-label">Bloqueados</div></div>
+    <div class="stat-card stat-tot">
+      <div class="stat-num">${total}</div>
+      <div class="stat-label">Total de leitos</div>
+      <div class="occ-bar-wrap"><div class="occ-bar-fill" style="width:${pct}%"></div></div>
+      <div class="stat-pct">${pct}% de ocupação</div>
+    </div>
+  `;
+}
+
+function render() {
+  const fS = document.getElementById('filter-setor').value;
+  const fO = document.getElementById('filter-occ').value;
+  renderStats();
+
+  const grouped = {};
+  data.forEach((r, i) => {
+    if (fS && r.s !== fS) return;
+    if (fO && r.o !== fO) return;
+    if (!grouped[r.s]) grouped[r.s] = [];
+    grouped[r.s].push({...r, idx: i});
+  });
+
+  const keys = Object.keys(grouped);
+
+  if (!keys.length) {
+    document.getElementById('table-body').innerHTML =
+      '<div class="empty">— Nenhum leito encontrado para os filtros selecionados —</div>';
+    return;
+  }
+
+  document.getElementById('table-body').innerHTML = keys.map(setor => {
+    const rows = grouped[setor];
+    const color = SETOR_COLOR[setor] || '#888';
+    const occ  = rows.filter(r => r.o === 'Leito Ocupado').length;
+    const free = rows.filter(r => r.o === 'Leito Disponível').length;
+    const blk  = rows.filter(r => r.o === 'Leito Bloqueado').length;
+
+    const miniStats = [
+      occ  ? `<span class="mini-pill mp-occ">${occ} ocup.</span>` : '',
+      free ? `<span class="mini-pill mp-free">${free} disp.</span>` : '',
+      blk  ? `<span class="mini-pill mp-blk">${blk} bloq.</span>` : '',
+    ].filter(Boolean).join('');
+
+    const trs = rows.map(r => {
+      const pac = r.p ? r.p : '<span style="color:var(--text3)">—</span>';
+      const obs = r.obs ? `<span style="color:var(--text2)">${r.obs}</span>` : '<span style="color:var(--text3)">—</span>';
+      const ac  = r.ac === 'Sim'
+        ? '<span class="ac-yes">✓</span>'
+        : r.ac === 'Não se Aplica'
+        ? '<span class="ac-na">N/A</span>'
+        : '<span class="ac-no">—</span>';
+
+      return `<tr>
+        <td class="td-leito">${r.l}</td>
+        <td><button class="badge ${badgeClass(r.o)}" onclick="cycleBadge(${r.idx})" title="Clique para alternar">
+          <span class="badge-dot"></span>${badgeLabel(r.o)}
+        </button></td>
+        <td class="td-pac">${pac}</td>
+        <td style="text-align:center">${ac}</td>
+        <td class="td-obs">${obs}</td>
+        <td><button class="edit-btn" onclick="openModal(${r.idx})" title="Editar">✎</button></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="setor-block">
+      <div class="setor-header">
+        <div class="setor-name">
+          <span class="setor-stripe" style="background:${color}"></span>${setor}
+        </div>
+        <div class="setor-mini-stats">${miniStats}</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:150px">Leito</th>
+          <th style="width:130px">Ocupação</th>
+          <th>Paciente</th>
+          <th style="width:80px;text-align:center">Acomp.</th>
+          <th>Observações</th>
+          <th style="width:50px"></th>
+        </tr></thead>
+        <tbody>${trs}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+async function cycleBadge(i) {
+  const opts = ['Leito Disponível', 'Leito Ocupado', 'Leito Bloqueado'];
+  const cur = opts.indexOf(data[i].o);
+  const novoStatus = opts[(cur + 1) % 3];
+
+  const { error } = await supabaseClient
+    .from('leitos')
+    .update({ ocupacao: novoStatus })
+    .eq('id', data[i].id);
+
+  if (error) {
+    console.error('Erro ao atualizar ocupação:', error);
+    alert('Erro ao atualizar ocupação do leito.');
+    return;
+  }
+
+  data[i].o = novoStatus;
+  document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+  render();
+}
+
+function openModal(i) {
+  editIdx = i;
+  const r = data[i];
+
+  document.getElementById('modal-eyebrow').textContent = r.s;
+  document.getElementById('modal-title').textContent = r.l;
+  document.getElementById('edit-occ').value = r.o;
+  document.getElementById('edit-pac').value = r.p || '';
+  document.getElementById('edit-ac').value = r.ac || 'Não';
+  document.getElementById('edit-obs').value = r.obs || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  editIdx = null;
+}
+
+async function saveEdit() {
+  if (editIdx === null) return;
+
+  const leitoAtual = data[editIdx];
+
+  const payload = {
+    ocupacao: document.getElementById('edit-occ').value,
+    paciente: document.getElementById('edit-pac').value,
+    acompanhante: document.getElementById('edit-ac').value,
+    observacoes: document.getElementById('edit-obs').value
+  };
+
+  const { error } = await supabaseClient
+    .from('leitos')
+    .update(payload)
+    .eq('id', leitoAtual.id);
+
+  if (error) {
+    console.error('Erro ao salvar edição:', error);
+    alert('Erro ao salvar edição do leito.');
+    return;
+  }
+
+  data[editIdx] = {
+    ...leitoAtual,
+    o: payload.ocupacao,
+    p: payload.paciente,
+    ac: payload.acompanhante,
+    obs: payload.observacoes
+  };
+
+  document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+  closeModal();
+  render();
+}
+
+function exportCSV() {
+  const rows = [['Setor','Leito','Ocupação','Paciente','Acompanhante','Observações']];
+
+  data.forEach(r => rows.push([r.s, r.l, r.o, r.p, r.ac, r.obs]));
+
+  const csv = rows
+    .map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(','))
+    .join('\n');
+
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'mapa_leitos_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.getElementById('data-hora').textContent = 'Carregando dados...';
+
+carregarLeitos();
+escutarAlteracoesRealtime();
+</script>
+</body>
+</html>
