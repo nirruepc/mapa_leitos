@@ -459,6 +459,46 @@ tr:hover td { background: #f8fafc; }
   transition: width .4s ease;
 }
 
+/* ─── LOCAL BACKGROUNDS ─── */
+body.local-upa { background: #f0f2f5; }
+body.local-margarita { background: #fffbe6; }
+body.local-hmvgm { background: #eaf6ff; }
+#filter-local.local-upa { background:#ffffff; }
+#filter-local.local-margarita { background:#fff8cc; }
+#filter-local.local-hmvgm { background:#e6f4ff; }
+
+/* ─── PASSWORD GATE ─── */
+.password-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(240,242,245,.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 24px;
+}
+.password-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 26px;
+  width: 380px;
+  max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,.12);
+}
+.password-error {
+  display:none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(197,48,48,.25);
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 13px;
+}
+.password-error.open { display:block; }
+
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -466,6 +506,25 @@ tr:hover td { background: #f8fafc; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<!-- PASSWORD GATE -->
+<div class="password-overlay" id="password-gate">
+  <div class="password-box">
+    <div class="modal-header">
+      <div class="modal-eyebrow">Acesso restrito</div>
+      <div class="modal-title">Mapa de Leitos</div>
+    </div>
+    <div class="field-group">
+      <label>Senha</label>
+      <input type="password" id="access-password" placeholder="Digite a senha de acesso" autocomplete="current-password">
+    </div>
+    <button class="btn-save" style="width:100%;margin-top:4px" onclick="validarSenha()">Entrar</button>
+    <div class="password-error" id="password-error">
+      Senha Inválida. Tente novamente ou entre em contato com a regulação do local.
+      <div style="margin-top:10px;text-align:right"><button class="btn-cancel" onclick="fecharErroSenha()">OK</button></div>
+    </div>
+  </div>
+</div>
 
 <div class="header">
   <div class="header-left">
@@ -481,7 +540,14 @@ tr:hover td { background: #f8fafc; }
 <div class="stats" id="stats-bar"></div>
 
 <div class="filters">
-  <span class="filter-label">Setor</span>
+  <span class="filter-label">Local</span>
+  <select id="filter-local" onchange="render()">
+    <option value="">Todos</option>
+    <option value="UPA">UPA</option>
+    <option value="Margarita Morales">Margarita Morales</option>
+    <option value="HMVGM">HMVGM</option>
+  </select>
+  <span class="filter-label" style="margin-left:8px">Setor</span>
   <select id="filter-setor" onchange="render()">
     <option value="">Todos</option>
   </select>
@@ -541,8 +607,118 @@ const SETOR_COLOR = {
   "Isolamento":           "var(--is)",
   "Internação Adulto":    "var(--ia)",
   "Internação Pediátrica":"var(--ip)",
-  "Medicação":            "var(--me)"
+  "Medicação":            "var(--me)",
+  "Emergência":           "var(--sv)"
 };
+
+const LOCAL_CLASS = {
+  "UPA": "local-upa",
+  "Margarita Morales": "local-margarita",
+  "HMVGM": "local-hmvgm"
+};
+
+const SENHAS_VALIDAS = ['Upa1234@', 'MM1234@', 'ZL1234', 'Samu1234@'];
+
+const ACESSOS = {
+  'Upa1234@':  { nome: 'UPA', localEditavel: 'UPA', somenteLeitura: false },
+  'MM1234@':   { nome: 'Margarita Morales', localEditavel: 'Margarita Morales', somenteLeitura: false },
+  'ZL1234':    { nome: 'HMVGM', localEditavel: 'HMVGM', somenteLeitura: false },
+  'Samu1234@': { nome: 'SAMU', localEditavel: null, somenteLeitura: true }
+};
+
+let acessoAtual = null;
+
+const LEITOS_PREVISTOS_POR_LOCAL = {
+  "Margarita Morales": [
+    ["Sala Vermelha", "Leito 1 (SV)"],
+    ["Sala Vermelha", "Leito 2 (SV)"],
+    ["Emergência", "Leito 3 (SV)"],
+    ["Sala Amarela", "Leito 1 (SA)"],
+    ["Isolamento", "Isolamento 1  (SA/SV)"],
+    ["Internação Adulto", "Feminino 1 (F1)"],
+    ["Internação Adulto", "Feminino 2 (F2)"],
+    ["Internação Adulto", "Feminino 3 (F3)"],
+    ["Internação Adulto", "Feminino 4 (F4)"],
+    ["Internação Adulto", "Feminino 5 (F5)"],
+    ["Internação Adulto", "Masculino 1 (M1)"],
+    ["Internação Adulto", "Masculino 2 (M2)"],
+    ["Internação Adulto", "Masculino 3 (M3)"],
+    ["Internação Adulto", "Masculino 4 (M4)"],
+    ["Internação Adulto", "Masculino 5 (M5)"],
+    ["Internação Pediátrica", "Leito 1 (PED)"],
+    ["Internação Pediátrica", "Leito 2 (PED)"],
+    ["Internação Pediátrica", "Leito 3 (PED)"],
+    ["Internação Pediátrica", "Leito 4 (PED)"],
+    ["Internação Pediátrica", "Leito 5 (PED)"]
+  ],
+  "HMVGM": [
+    ["Emergência", "Leito 1 (U/E)"],
+    ["Emergência", "Leito 2 (U/E)"],
+    ["Internação Adulto", "Feminino 1 (F1)"],
+    ["Internação Adulto", "Feminino 2 (F2)"],
+    ["Internação Adulto", "Feminino 3 (F3)"],
+    ["Internação Adulto", "Feminino 4 (F4)"],
+    ["Internação Adulto", "Feminino 5 (F5)"],
+    ["Internação Adulto", "Feminino 6 (F6)"],
+    ["Internação Adulto", "Feminino 7 (F7)"],
+    ["Internação Adulto", "Feminino 8 (F8)"],
+    ["Internação Adulto", "Feminino 9 (F9)"],
+    ["Internação Adulto", "Masculino 1 (M1)"],
+    ["Internação Adulto", "Masculino 2 (M2)"],
+    ["Internação Adulto", "Masculino 3 (M3)"],
+    ["Internação Adulto", "Masculino 4 (M4)"],
+    ["Internação Adulto", "Masculino 5 (M5)"],
+    ["Internação Adulto", "Masculino 6 (M6)"],
+    ["Internação Adulto", "Masculino 7 (M7)"],
+    ["Internação Adulto", "Masculino 8 (M8)"],
+    ["Internação Adulto", "Masculino 9 (M9)"]
+  ]
+};
+
+function criarLeitosPrevistos(local) {
+  return (LEITOS_PREVISTOS_POR_LOCAL[local] || []).map(([setor, leito], index) => ({
+    id: 'previsto-' + local.replace(/\s+/g, '-').toLowerCase() + '-' + index,
+    local,
+    s: setor,
+    l: leito,
+    o: 'Leito Disponível',
+    p: '',
+    ac: 'Não',
+    obs: '',
+    previsto: true,
+    ordemPrevista: index
+  }));
+}
+
+function chaveLeito(r) {
+  return [r.local, r.s, r.l].map(v => String(v || '').trim().toUpperCase()).join('|');
+}
+
+function completarLeitosPrevistos(rows) {
+  let completos = [...rows];
+
+  Object.keys(LEITOS_PREVISTOS_POR_LOCAL).forEach(local => {
+    const existentes = completos.filter(r => r.local === local).map(chaveLeito);
+    const contagemExistentes = existentes.reduce((acc, chave) => {
+      acc[chave] = (acc[chave] || 0) + 1;
+      return acc;
+    }, {});
+
+    const previstos = criarLeitosPrevistos(local);
+    const contagemPrevistos = {};
+
+    previstos.forEach(previsto => {
+      const chave = chaveLeito(previsto);
+      contagemPrevistos[chave] = (contagemPrevistos[chave] || 0) + 1;
+
+      if ((contagemExistentes[chave] || 0) < contagemPrevistos[chave]) {
+        completos.push(previsto);
+      }
+    });
+  });
+
+  return completos;
+}
 
 /*
   ATENÇÃO:
@@ -556,6 +732,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let data = [];
 let editIdx = null;
+let realtimeLigado = false;
 
 function now() {
   return new Date().toLocaleString('pt-BR', {
@@ -567,9 +744,17 @@ function now() {
   });
 }
 
+function normalizarLocal(valor) {
+  const v = (valor || 'UPA').toString().trim().toUpperCase();
+  if (v.includes('MARGARITA')) return 'Margarita Morales';
+  if (v.includes('HMVGM')) return 'HMVGM';
+  return 'UPA';
+}
+
 function mapLeito(row) {
   return {
     id: row.id,
+    local: normalizarLocal(row.local),
     s: row.setor,
     l: row.leito,
     o: row.ocupacao,
@@ -577,6 +762,16 @@ function mapLeito(row) {
     ac: row.acompanhante || 'Não',
     obs: row.observacoes || ''
   };
+}
+
+function removerDuplicados(rows) {
+  const vistos = new Set();
+  return rows.filter(r => {
+    const chave = [r.local, r.s, r.l].map(v => String(v || '').trim().toUpperCase()).join('|');
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
 }
 
 async function carregarLeitos() {
@@ -592,7 +787,7 @@ async function carregarLeitos() {
     return;
   }
 
-  data = rows.map(mapLeito);
+  data = completarLeitosPrevistos(removerDuplicados(rows.map(mapLeito)));
   atualizarFiltroSetores();
   document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
   render();
@@ -601,10 +796,12 @@ async function carregarLeitos() {
 function atualizarFiltroSetores() {
   const sel = document.getElementById('filter-setor');
   const valorAtual = sel.value;
+  const localAtual = document.getElementById('filter-local')?.value || '';
 
   sel.innerHTML = '<option value="">Todos</option>';
 
-  const setores = [...new Set(data.map(r => r.s))];
+  const base = localAtual ? data.filter(r => r.local === localAtual) : data;
+  const setores = [...new Set(base.map(r => r.s))];
 
   setores.forEach(s => {
     const o = document.createElement('option');
@@ -619,6 +816,9 @@ function atualizarFiltroSetores() {
 }
 
 function escutarAlteracoesRealtime() {
+  if (realtimeLigado) return;
+  realtimeLigado = true;
+
   supabaseClient
     .channel('realtime-leitos')
     .on(
@@ -639,11 +839,24 @@ function badgeLabel(o) {
   return o === 'Leito Ocupado' ? 'Ocupado' : o === 'Leito Bloqueado' ? 'Bloqueado' : 'Disponível';
 }
 
-function renderStats() {
-  const occ  = data.filter(r => r.o === 'Leito Ocupado').length;
-  const free = data.filter(r => r.o === 'Leito Disponível').length;
-  const blk  = data.filter(r => r.o === 'Leito Bloqueado').length;
-  const total = data.length;
+function podeEditarLeito(r) {
+  if (!acessoAtual || acessoAtual.somenteLeitura) return false;
+  return r.local === acessoAtual.localEditavel;
+}
+
+function avisoSemPermissao() {
+  if (acessoAtual && acessoAtual.somenteLeitura) {
+    alert('Acesso SAMU: modo somente leitura. Alterações não são permitidas.');
+    return;
+  }
+  alert('Esta senha permite alterar apenas os leitos do local correspondente.');
+}
+
+function renderStats(base = data) {
+  const occ  = base.filter(r => r.o === 'Leito Ocupado').length;
+  const free = base.filter(r => r.o === 'Leito Disponível').length;
+  const blk  = base.filter(r => r.o === 'Leito Bloqueado').length;
+  const total = base.length;
   const pct = total ? Math.round(occ / total * 100) : 0;
 
   document.getElementById('stats-bar').innerHTML = `
@@ -660,16 +873,34 @@ function renderStats() {
 }
 
 function render() {
+  const fL = document.getElementById('filter-local').value;
   const fS = document.getElementById('filter-setor').value;
   const fO = document.getElementById('filter-occ').value;
-  renderStats();
+
+  document.body.classList.remove('local-upa', 'local-margarita', 'local-hmvgm');
+  document.getElementById('filter-local').classList.remove('local-upa', 'local-margarita', 'local-hmvgm');
+  if (fL && LOCAL_CLASS[fL]) {
+    document.body.classList.add(LOCAL_CLASS[fL]);
+    document.getElementById('filter-local').classList.add(LOCAL_CLASS[fL]);
+  }
+
+  atualizarFiltroSetores();
+
+  const filtrados = data.filter(r => {
+    if (fL && r.local !== fL) return false;
+    if (fS && r.s !== fS) return false;
+    if (fO && r.o !== fO) return false;
+    return true;
+  });
+
+  renderStats(filtrados);
 
   const grouped = {};
-  data.forEach((r, i) => {
-    if (fS && r.s !== fS) return;
-    if (fO && r.o !== fO) return;
-    if (!grouped[r.s]) grouped[r.s] = [];
-    grouped[r.s].push({...r, idx: i});
+  filtrados.forEach(r => {
+    const i = data.indexOf(r);
+    const grupo = fL ? r.s : `${r.local} • ${r.s}`;
+    if (!grouped[grupo]) grouped[grupo] = [];
+    grouped[grupo].push({...r, idx: i});
   });
 
   const keys = Object.keys(grouped);
@@ -680,8 +911,9 @@ function render() {
     return;
   }
 
-  document.getElementById('table-body').innerHTML = keys.map(setor => {
-    const rows = grouped[setor];
+  document.getElementById('table-body').innerHTML = keys.map(grupo => {
+    const rows = grouped[grupo];
+    const setor = rows[0].s;
     const color = SETOR_COLOR[setor] || '#888';
     const occ  = rows.filter(r => r.o === 'Leito Ocupado').length;
     const free = rows.filter(r => r.o === 'Leito Disponível').length;
@@ -717,7 +949,7 @@ function render() {
     return `<div class="setor-block">
       <div class="setor-header">
         <div class="setor-name">
-          <span class="setor-stripe" style="background:${color}"></span>${setor}
+          <span class="setor-stripe" style="background:${color}"></span>${grupo}
         </div>
         <div class="setor-mini-stats">${miniStats}</div>
       </div>
@@ -737,6 +969,16 @@ function render() {
 }
 
 async function cycleBadge(i) {
+  if (!podeEditarLeito(data[i])) {
+    avisoSemPermissao();
+    return;
+  }
+
+  if (data[i].previsto) {
+    alert('Este leito está previsto na estrutura do local, mas ainda não possui registro no banco de dados. Para editar, cadastre este leito no Supabase.');
+    return;
+  }
+
   const opts = ['Leito Disponível', 'Leito Ocupado', 'Leito Bloqueado'];
   const cur = opts.indexOf(data[i].o);
   const novoStatus = opts[(cur + 1) % 3];
@@ -758,10 +1000,16 @@ async function cycleBadge(i) {
 }
 
 function openModal(i) {
-  editIdx = i;
   const r = data[i];
 
-  document.getElementById('modal-eyebrow').textContent = r.s;
+  if (!podeEditarLeito(r)) {
+    avisoSemPermissao();
+    return;
+  }
+
+  editIdx = i;
+
+  document.getElementById('modal-eyebrow').textContent = r.local + ' • ' + r.s;
   document.getElementById('modal-title').textContent = r.l;
   document.getElementById('edit-occ').value = r.o;
   document.getElementById('edit-pac').value = r.p || '';
@@ -779,6 +1027,17 @@ async function saveEdit() {
   if (editIdx === null) return;
 
   const leitoAtual = data[editIdx];
+
+  if (!podeEditarLeito(leitoAtual)) {
+    avisoSemPermissao();
+    closeModal();
+    return;
+  }
+
+  if (leitoAtual.previsto) {
+    alert('Este leito está previsto na estrutura do local, mas ainda não possui registro no banco de dados. Para editar, cadastre este leito no Supabase.');
+    return;
+  }
 
   const payload = {
     ocupacao: document.getElementById('edit-occ').value,
@@ -812,9 +1071,9 @@ async function saveEdit() {
 }
 
 function exportCSV() {
-  const rows = [['Setor','Leito','Ocupação','Paciente','Acompanhante','Observações']];
+  const rows = [['Local','Setor','Leito','Ocupação','Paciente','Acompanhante','Observações']];
 
-  data.forEach(r => rows.push([r.s, r.l, r.o, r.p, r.ac, r.obs]));
+  data.forEach(r => rows.push([r.local, r.s, r.l, r.o, r.p, r.ac, r.obs]));
 
   const csv = rows
     .map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(','))
@@ -826,14 +1085,39 @@ function exportCSV() {
   a.click();
 }
 
+function validarSenha() {
+  const input = document.getElementById('access-password');
+  const senha = input.value;
+
+  if (SENHAS_VALIDAS.includes(senha)) {
+    acessoAtual = ACESSOS[senha];
+    document.getElementById('password-gate').style.display = 'none';
+    input.value = '';
+    carregarLeitos();
+    escutarAlteracoesRealtime();
+    return;
+  }
+
+  document.getElementById('password-error').classList.add('open');
+}
+
+function fecharErroSenha() {
+  document.getElementById('password-error').classList.remove('open');
+  const input = document.getElementById('access-password');
+  input.value = '';
+  input.focus();
+}
+
+document.getElementById('access-password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') validarSenha();
+});
+
 document.getElementById('modal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
-document.getElementById('data-hora').textContent = 'Carregando dados...';
-
-carregarLeitos();
-escutarAlteracoesRealtime();
+document.getElementById('data-hora').textContent = 'Aguardando senha de acesso...';
+document.getElementById('access-password').focus();
 </script>
 </body>
 </html>
