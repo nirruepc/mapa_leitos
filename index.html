@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -210,7 +211,22 @@ select:focus { border-color: var(--blue); color: var(--text); }
 
 .setor-stripe { width: 3px; height: 18px; border-radius: 2px; }
 
-.setor-mini-stats { display: flex; gap: 6px; }
+.setor-mini-stats { display: flex; gap: 6px; align-items:center; }
+.admin-leito-actions { display:flex; gap:6px; margin-left:8px; }
+.admin-mini-btn {
+  background:none;
+  border:1px solid var(--border);
+  border-radius:5px;
+  color:var(--text3);
+  width:24px;
+  height:24px;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:15px;
+  line-height:1;
+  cursor:pointer;
+  transition:all .15s;
+}
+.admin-mini-btn:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-bg); }
 
 .mini-pill {
   font-family: 'IBM Plex Mono', monospace;
@@ -315,6 +331,8 @@ tr:hover td { background: #f8fafc; }
   line-height: 1;
 }
 .edit-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+.edit-btn:disabled { opacity:.35; cursor:not-allowed; }
+.badge:disabled { opacity:.55; cursor:not-allowed; filter:none; }
 
 /* ─── MODAL ─── */
 .modal-overlay {
@@ -507,6 +525,7 @@ body.local-hmvgm { background: #eaf6ff; }
 </head>
 <body>
 
+
 <!-- PASSWORD GATE -->
 <div class="password-overlay" id="password-gate">
   <div class="password-box">
@@ -579,7 +598,11 @@ body.local-hmvgm { background: #eaf6ff; }
     </div>
     <div class="field-group">
       <label>Paciente</label>
-      <input type="text" id="edit-pac" placeholder="Nome completo, idade">
+      <input type="text" id="edit-pac" placeholder="Nome completo">
+    </div>
+    <div class="field-group">
+      <label>Idade</label>
+      <input type="number" id="edit-idade" placeholder="Idade em anos" min="0" max="130">
     </div>
     <div class="field-group">
       <label>Acompanhante</label>
@@ -617,24 +640,56 @@ const LOCAL_CLASS = {
   "HMVGM": "local-hmvgm"
 };
 
-const SENHAS_VALIDAS = ['Upa1234@', 'MM1234@', 'ZL1234', 'Samu1234@'];
-
 const ACESSOS = {
-  'Upa1234@':  { nome: 'UPA', localEditavel: 'UPA', somenteLeitura: false },
-  'MM1234@':   { nome: 'Margarita Morales', localEditavel: 'Margarita Morales', somenteLeitura: false },
-  'ZL1234':    { nome: 'HMVGM', localEditavel: 'HMVGM', somenteLeitura: false },
-  'Samu1234@': { nome: 'SAMU', localEditavel: null, somenteLeitura: true }
+  'Upa1234@':  { nome: 'UPA', localEditavel: 'UPA', somenteLeitura: false, admin: false },
+  'MM1234@':   { nome: 'Margarita Morales', localEditavel: 'Margarita Morales', somenteLeitura: false, admin: false },
+  'ZL1234':    { nome: 'HMVGM', localEditavel: 'HMVGM', somenteLeitura: false, admin: false },
+  'Samu1234@': { nome: 'SAMU', localEditavel: null, somenteLeitura: true, admin: false },
+  'NirRue321@': { nome: 'NIR/RUE', localEditavel: 'TODOS', somenteLeitura: false, admin: true }
 };
 
+const SENHAS_VALIDAS = Object.keys(ACESSOS);
 let acessoAtual = null;
+let realtimeLigado = false;
+const REMOVIDO_MARKER = '[REMOVIDO_DO_MAPA]';
 
 const LEITOS_PREVISTOS_POR_LOCAL = {
+  "UPA": [
+    ["Sala Vermelha", "Leito 1 (SV)"],
+    ["Sala Vermelha", "Leito 2 (SV)"],
+    ["Sala Vermelha", "Leito 3 (SV)"],
+    ["Sala Vermelha", "Leito 4 (SV)"],
+    ["Sala Amarela", "Leito 1 (SA)"],
+    ["Sala Amarela", "Leito 2 (SA)"],
+    ["Sala Amarela", "Leito 3 (SA)"],
+    ["Sala Amarela", "Leito 4 (SA)"],
+    ["Isolamento", "Isolamento 1  (SA/SV)"],
+    ["Internação Adulto", "Feminino 1 (F1)"],
+    ["Internação Adulto", "Feminino 2 (F2)"],
+    ["Internação Adulto", "Feminino 3 (F3)"],
+    ["Internação Adulto", "Feminino 4 (F4)"],
+    ["Internação Adulto", "Feminino 5 (F5)"],
+    ["Internação Adulto", "Feminino 6 (F6)"],
+    ["Internação Adulto", "Masculino 1 (M1)"],
+    ["Internação Adulto", "Masculino 2 (M2)"],
+    ["Internação Adulto", "Masculino 3 (M3)"],
+    ["Internação Adulto", "Masculino 4 (M4)"],
+    ["Internação Adulto", "Masculino 5 (M5)"],
+    ["Internação Adulto", "Masculino 6 (M6)"],
+    ["Isolamento", "Isolamento 1 (INTER)"],
+    ["Internação Pediátrica", "Leito 1 (PED)"],
+    ["Internação Pediátrica", "Leito 2 (PED)"],
+    ["Internação Pediátrica", "Leito 3 (PED)"],
+    ["Internação Pediátrica", "Leito 4 (PED)"],
+    ["Internação Pediátrica", "Leito 5 (PED)"],
+    ["Medicação", "Medicação"]
+  ],
   "Margarita Morales": [
     ["Sala Vermelha", "Leito 1 (SV)"],
     ["Sala Vermelha", "Leito 2 (SV)"],
     ["Emergência", "Leito 3 (SV)"],
     ["Sala Amarela", "Leito 1 (SA)"],
-    ["Isolamento", "Isolamento 1  (SA/SV)"],
+    ["Medicação", "Medicação 1"],
     ["Internação Adulto", "Feminino 1 (F1)"],
     ["Internação Adulto", "Feminino 2 (F2)"],
     ["Internação Adulto", "Feminino 3 (F3)"],
@@ -648,77 +703,32 @@ const LEITOS_PREVISTOS_POR_LOCAL = {
     ["Internação Pediátrica", "Leito 1 (PED)"],
     ["Internação Pediátrica", "Leito 2 (PED)"],
     ["Internação Pediátrica", "Leito 3 (PED)"],
-    ["Internação Pediátrica", "Leito 4 (PED)"],
-    ["Internação Pediátrica", "Leito 5 (PED)"]
+    ["Emergência Pediátrica", "Leito 1 (EP)" ]
   ],
   "HMVGM": [
     ["Emergência", "Leito 1 (U/E)"],
     ["Emergência", "Leito 2 (U/E)"],
-    ["Internação Adulto", "Feminino 1 (F1)"],
-    ["Internação Adulto", "Feminino 2 (F2)"],
-    ["Internação Adulto", "Feminino 3 (F3)"],
-    ["Internação Adulto", "Feminino 4 (F4)"],
-    ["Internação Adulto", "Feminino 5 (F5)"],
-    ["Internação Adulto", "Feminino 6 (F6)"],
-    ["Internação Adulto", "Feminino 7 (F7)"],
-    ["Internação Adulto", "Feminino 8 (F8)"],
-    ["Internação Adulto", "Feminino 9 (F9)"],
-    ["Internação Adulto", "Masculino 1 (M1)"],
-    ["Internação Adulto", "Masculino 2 (M2)"],
-    ["Internação Adulto", "Masculino 3 (M3)"],
-    ["Internação Adulto", "Masculino 4 (M4)"],
-    ["Internação Adulto", "Masculino 5 (M5)"],
-    ["Internação Adulto", "Masculino 6 (M6)"],
-    ["Internação Adulto", "Masculino 7 (M7)"],
-    ["Internação Adulto", "Masculino 8 (M8)"],
-    ["Internação Adulto", "Masculino 9 (M9)"]
+    ["Internação Adulto", "Quarto 1/1"],
+    ["Internação Adulto", "Quarto 1/2"],
+    ["Internação Adulto", "Quarto 2/1"],
+    ["Internação Adulto", "Quarto 2/2"],
+    ["Internação Adulto", "Quarto 3/1"],
+    ["Internação Adulto", "Quarto 3/2"],
+    ["Internação Adulto", "Quarto 4/1"],
+    ["Internação Adulto", "Quarto 4/2"],
+    ["Internação Adulto", "Quarto 5/1"],
+    ["Internação Adulto", "Quarto 5/2"],
+    ["Internação Adulto", "Quarto 6/1"],
+    ["Internação Adulto", "Quarto 6/2"],
+    ["Internação Adulto", "Quarto 7/1"],
+    ["Internação Adulto", "Quarto 7/2"],
+    ["Internação Adulto", "Quarto 8/1"],
+    ["Internação Adulto", "Quarto 8/2"],
+    ["Internação Adulto", "Quarto 9/1"],
+    ["Internação Adulto", "Quarto 9/2"],
+    ["Internação Adulto", "Quarto 10/1"]
   ]
 };
-
-function criarLeitosPrevistos(local) {
-  return (LEITOS_PREVISTOS_POR_LOCAL[local] || []).map(([setor, leito], index) => ({
-    id: 'previsto-' + local.replace(/\s+/g, '-').toLowerCase() + '-' + index,
-    local,
-    s: setor,
-    l: leito,
-    o: 'Leito Disponível',
-    p: '',
-    ac: 'Não',
-    obs: '',
-    previsto: true,
-    ordemPrevista: index
-  }));
-}
-
-function chaveLeito(r) {
-  return [r.local, r.s, r.l].map(v => String(v || '').trim().toUpperCase()).join('|');
-}
-
-function completarLeitosPrevistos(rows) {
-  let completos = [...rows];
-
-  Object.keys(LEITOS_PREVISTOS_POR_LOCAL).forEach(local => {
-    const existentes = completos.filter(r => r.local === local).map(chaveLeito);
-    const contagemExistentes = existentes.reduce((acc, chave) => {
-      acc[chave] = (acc[chave] || 0) + 1;
-      return acc;
-    }, {});
-
-    const previstos = criarLeitosPrevistos(local);
-    const contagemPrevistos = {};
-
-    previstos.forEach(previsto => {
-      const chave = chaveLeito(previsto);
-      contagemPrevistos[chave] = (contagemPrevistos[chave] || 0) + 1;
-
-      if ((contagemExistentes[chave] || 0) < contagemPrevistos[chave]) {
-        completos.push(previsto);
-      }
-    });
-  });
-
-  return completos;
-}
 
 /*
   ATENÇÃO:
@@ -732,7 +742,6 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let data = [];
 let editIdx = null;
-let realtimeLigado = false;
 
 function now() {
   return new Date().toLocaleString('pt-BR', {
@@ -751,24 +760,114 @@ function normalizarLocal(valor) {
   return 'UPA';
 }
 
+function deveDesconsiderarLinha(r) {
+  if (r.local === 'Margarita Morales') {
+    if (r.s === 'Isolamento') return true;
+    if (r.s === 'Medicação' && r.l !== 'Medicação 1') return true;
+    if (r.s === 'Internação Pediátrica' && ['Leito 4 (PED)', 'Leito 5 (PED)'].includes(r.l)) return true;
+  }
+
+  if (r.local === 'HMVGM' && r.s === 'Internação Adulto' && !String(r.l || '').startsWith('Quarto ')) {
+    return true;
+  }
+
+  return false;
+}
+
 function mapLeito(row) {
-  return {
+  const r = {
     id: row.id,
     local: normalizarLocal(row.local),
     s: row.setor,
     l: row.leito,
-    o: row.ocupacao,
+    o: row.ocupacao || 'Leito Disponível',
     p: row.paciente || '',
     ac: row.acompanhante || 'Não',
-    obs: row.observacoes || ''
+    obs: row.observacoes || '',
+    previsto: false
   };
+
+  r.removido = String(r.obs || '').includes(REMOVIDO_MARKER);
+  return r;
+}
+
+function criarLeitosPrevistos(local) {
+  return (LEITOS_PREVISTOS_POR_LOCAL[local] || []).map(([setor, leito], index) => ({
+    id: 'previsto-' + local.replace(/\s+/g, '-').toLowerCase() + '-' + index,
+    local,
+    s: setor,
+    l: leito,
+    o: 'Leito Disponível',
+    p: '',
+    ac: 'Não',
+    obs: '',
+    previsto: true,
+    removido: false
+  }));
+}
+
+function chaveLeito(r) {
+  return [r.local, r.s, r.l].map(v => String(v || '').trim().toUpperCase()).join('|');
+}
+
+function completarLeitosPrevistos(rows) {
+  const removidos = new Set(rows.filter(r => r.removido).map(chaveLeito));
+  const completos = rows.filter(r => !r.removido && !deveDesconsiderarLinha(r));
+
+  Object.keys(LEITOS_PREVISTOS_POR_LOCAL).forEach(local => {
+    criarLeitosPrevistos(local).forEach(previsto => {
+      const chave = chaveLeito(previsto);
+      if (removidos.has(chave)) return;
+      if (!completos.some(r => chaveLeito(r) === chave)) {
+        completos.push(previsto);
+      }
+    });
+  });
+
+  return completos;
+}
+
+function extrairIdadePaciente(valor) {
+  const m = String(valor || '').match(/(?:,|\s)(\d{1,3})\s*(?:anos?|ANOS?)/i);
+  return m ? m[1] : '';
+}
+
+function extrairNomePaciente(valor) {
+  return String(valor || '')
+    .replace(/,?\s*\d{1,3}\s*(?:anos?|ANOS?)\s*$/i, '')
+    .trim();
+}
+
+function montarPaciente(nome, idade) {
+  const n = String(nome || '').trim();
+  const i = String(idade || '').trim();
+  if (n && i) return `${n}, ${i} anos`;
+  return n;
+}
+
+function podeEditarLeito(r) {
+  if (!acessoAtual || acessoAtual.somenteLeitura) return false;
+  if (acessoAtual.admin) return true;
+  return r.local === acessoAtual.localEditavel;
+}
+
+function avisoSemPermissao() {
+  if (acessoAtual && acessoAtual.somenteLeitura) {
+    alert('Acesso SAMU: modo somente leitura. Alterações não são permitidas.');
+    return;
+  }
+  alert('Esta senha permite alterar apenas os leitos do local correspondente.');
+}
+
+function podeGerenciarLeitos() {
+  return !!(acessoAtual && acessoAtual.admin);
 }
 
 function removerDuplicados(rows) {
   const vistos = new Set();
   return rows.filter(r => {
-    const chave = [r.local, r.s, r.l].map(v => String(v || '').trim().toUpperCase()).join('|');
-    if (vistos.has(chave)) return false;
+    const chave = chaveLeito(r);
+    if (vistos.has(chave) && !r.removido) return false;
     vistos.add(chave);
     return true;
   });
@@ -787,7 +886,7 @@ async function carregarLeitos() {
     return;
   }
 
-  data = completarLeitosPrevistos(removerDuplicados(rows.map(mapLeito)));
+  data = completarLeitosPrevistos(removerDuplicados((rows || []).map(mapLeito)));
   atualizarFiltroSetores();
   document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
   render();
@@ -837,19 +936,6 @@ function badgeClass(o) {
 
 function badgeLabel(o) {
   return o === 'Leito Ocupado' ? 'Ocupado' : o === 'Leito Bloqueado' ? 'Bloqueado' : 'Disponível';
-}
-
-function podeEditarLeito(r) {
-  if (!acessoAtual || acessoAtual.somenteLeitura) return false;
-  return r.local === acessoAtual.localEditavel;
-}
-
-function avisoSemPermissao() {
-  if (acessoAtual && acessoAtual.somenteLeitura) {
-    alert('Acesso SAMU: modo somente leitura. Alterações não são permitidas.');
-    return;
-  }
-  alert('Esta senha permite alterar apenas os leitos do local correspondente.');
 }
 
 function renderStats(base = data) {
@@ -914,6 +1000,7 @@ function render() {
   document.getElementById('table-body').innerHTML = keys.map(grupo => {
     const rows = grouped[grupo];
     const setor = rows[0].s;
+    const localGrupo = rows[0].local;
     const color = SETOR_COLOR[setor] || '#888';
     const occ  = rows.filter(r => r.o === 'Leito Ocupado').length;
     const free = rows.filter(r => r.o === 'Leito Disponível').length;
@@ -934,15 +1021,20 @@ function render() {
         ? '<span class="ac-na">N/A</span>'
         : '<span class="ac-no">—</span>';
 
+      const semPermissao = !podeEditarLeito(r);
+      const disabledAttr = semPermissao ? 'disabled' : '';
+      const titleBadge = semPermissao ? 'Sem permissão para alterar este leito' : 'Clique para alternar';
+      const titleEdit = semPermissao ? 'Sem permissão para editar este leito' : 'Editar';
+
       return `<tr>
         <td class="td-leito">${r.l}</td>
-        <td><button class="badge ${badgeClass(r.o)}" onclick="cycleBadge(${r.idx})" title="Clique para alternar">
+        <td><button class="badge ${badgeClass(r.o)}" onclick="cycleBadge(${r.idx})" title="${titleBadge}" ${disabledAttr}>
           <span class="badge-dot"></span>${badgeLabel(r.o)}
         </button></td>
         <td class="td-pac">${pac}</td>
         <td style="text-align:center">${ac}</td>
         <td class="td-obs">${obs}</td>
-        <td><button class="edit-btn" onclick="openModal(${r.idx})" title="Editar">✎</button></td>
+        <td><button class="edit-btn" onclick="openModal(${r.idx})" title="${titleEdit}" ${disabledAttr}>✎</button></td>
       </tr>`;
     }).join('');
 
@@ -951,7 +1043,7 @@ function render() {
         <div class="setor-name">
           <span class="setor-stripe" style="background:${color}"></span>${grupo}
         </div>
-        <div class="setor-mini-stats">${miniStats}</div>
+        <div class="setor-mini-stats">${miniStats}${podeGerenciarLeitos() ? `<span class="admin-leito-actions"><button class="admin-mini-btn" onclick="addLeito('${localGrupo.replace(/'/g, "\\'")}', '${setor.replace(/'/g, "\\'")}')" title="Adicionar leito">+</button><button class="admin-mini-btn" onclick="removeLeito('${localGrupo.replace(/'/g, "\\'")}', '${setor.replace(/'/g, "\\'")}')" title="Remover leito">-</button></span>` : ''}</div>
       </div>
       <table>
         <thead><tr>
@@ -968,20 +1060,51 @@ function render() {
   }).join('');
 }
 
+async function criarRegistroPrevisto(leitoAtual, payloadExtra = {}) {
+  const payload = {
+    local: leitoAtual.local,
+    setor: leitoAtual.s,
+    leito: leitoAtual.l,
+    ocupacao: leitoAtual.o || 'Leito Disponível',
+    paciente: leitoAtual.p || '',
+    acompanhante: leitoAtual.ac || 'Não',
+    observacoes: leitoAtual.obs || '',
+    ...payloadExtra
+  };
+
+  const { data: novo, error } = await supabaseClient
+    .from('leitos')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao criar leito no Supabase:', error);
+    alert('Erro ao criar o registro deste leito no Supabase. Verifique se a tabela leitos possui a coluna local.');
+    return null;
+  }
+
+  return mapLeito(novo);
+}
+
 async function cycleBadge(i) {
   if (!podeEditarLeito(data[i])) {
     avisoSemPermissao();
     return;
   }
 
-  if (data[i].previsto) {
-    alert('Este leito está previsto na estrutura do local, mas ainda não possui registro no banco de dados. Para editar, cadastre este leito no Supabase.');
-    return;
-  }
-
   const opts = ['Leito Disponível', 'Leito Ocupado', 'Leito Bloqueado'];
   const cur = opts.indexOf(data[i].o);
   const novoStatus = opts[(cur + 1) % 3];
+
+  if (data[i].previsto) {
+    const novoRegistro = await criarRegistroPrevisto(data[i], { ocupacao: novoStatus });
+    if (!novoRegistro) return;
+    data[i] = novoRegistro;
+    document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+    render();
+    return;
+  }
 
   const { error } = await supabaseClient
     .from('leitos')
@@ -1012,7 +1135,8 @@ function openModal(i) {
   document.getElementById('modal-eyebrow').textContent = r.local + ' • ' + r.s;
   document.getElementById('modal-title').textContent = r.l;
   document.getElementById('edit-occ').value = r.o;
-  document.getElementById('edit-pac').value = r.p || '';
+  document.getElementById('edit-pac').value = extrairNomePaciente(r.p || '');
+  document.getElementById('edit-idade').value = extrairIdadePaciente(r.p || '');
   document.getElementById('edit-ac').value = r.ac || 'Não';
   document.getElementById('edit-obs').value = r.obs || '';
   document.getElementById('modal').classList.add('open');
@@ -1034,17 +1158,23 @@ async function saveEdit() {
     return;
   }
 
-  if (leitoAtual.previsto) {
-    alert('Este leito está previsto na estrutura do local, mas ainda não possui registro no banco de dados. Para editar, cadastre este leito no Supabase.');
-    return;
-  }
-
   const payload = {
     ocupacao: document.getElementById('edit-occ').value,
-    paciente: document.getElementById('edit-pac').value,
+    paciente: montarPaciente(document.getElementById('edit-pac').value, document.getElementById('edit-idade').value),
     acompanhante: document.getElementById('edit-ac').value,
     observacoes: document.getElementById('edit-obs').value
   };
+
+  if (leitoAtual.previsto) {
+    const novoRegistro = await criarRegistroPrevisto(leitoAtual, payload);
+    if (!novoRegistro) return;
+
+    data[editIdx] = novoRegistro;
+    document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+    closeModal();
+    render();
+    return;
+  }
 
   const { error } = await supabaseClient
     .from('leitos')
@@ -1070,6 +1200,77 @@ async function saveEdit() {
   render();
 }
 
+async function addLeito(local, setor) {
+  if (!podeGerenciarLeitos()) return avisoSemPermissao();
+
+  const nomeLeito = prompt('Digite o nome do novo leito para ' + local + ' / ' + setor + ':');
+  if (!nomeLeito || !nomeLeito.trim()) return;
+
+  const payload = {
+    local,
+    setor,
+    leito: nomeLeito.trim(),
+    ocupacao: 'Leito Disponível',
+    paciente: '',
+    acompanhante: 'Não',
+    observacoes: ''
+  };
+
+  const { error } = await supabaseClient.from('leitos').insert(payload);
+
+  if (error) {
+    console.error('Erro ao adicionar leito:', error);
+    alert('Erro ao adicionar leito no Supabase.');
+    return;
+  }
+
+  await carregarLeitos();
+}
+
+async function removeLeito(local, setor) {
+  if (!podeGerenciarLeitos()) return avisoSemPermissao();
+
+  const nomeLeito = prompt('Digite exatamente o nome do leito que deseja remover de ' + local + ' / ' + setor + ':');
+  if (!nomeLeito || !nomeLeito.trim()) return;
+
+  const leito = nomeLeito.trim();
+  const existente = data.find(r => r.local === local && r.s === setor && r.l === leito && !r.previsto);
+
+  if (!confirm('Confirmar remoção do leito "' + leito + '"?')) return;
+
+  if (existente) {
+    const obsAtual = existente.obs || '';
+    const { error } = await supabaseClient
+      .from('leitos')
+      .update({ observacoes: (obsAtual ? obsAtual + ' ' : '') + REMOVIDO_MARKER })
+      .eq('id', existente.id);
+
+    if (error) {
+      console.error('Erro ao remover leito:', error);
+      alert('Erro ao remover leito no Supabase.');
+      return;
+    }
+  } else {
+    const { error } = await supabaseClient.from('leitos').insert({
+      local,
+      setor,
+      leito,
+      ocupacao: 'Leito Disponível',
+      paciente: '',
+      acompanhante: 'Não',
+      observacoes: REMOVIDO_MARKER
+    });
+
+    if (error) {
+      console.error('Erro ao registrar remoção:', error);
+      alert('Erro ao registrar remoção no Supabase.');
+      return;
+    }
+  }
+
+  await carregarLeitos();
+}
+
 function exportCSV() {
   const rows = [['Local','Setor','Leito','Ocupação','Paciente','Acompanhante','Observações']];
 
@@ -1084,6 +1285,7 @@ function exportCSV() {
   a.download = 'mapa_leitos_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
 }
+
 
 function validarSenha() {
   const input = document.getElementById('access-password');
