@@ -332,6 +332,21 @@ tr:hover td { background: #f8fafc; }
 }
 .edit-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
 .edit-btn:disabled { opacity:.35; cursor:not-allowed; }
+
+.delete-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text3);
+  padding: 5px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all .15s;
+  line-height: 1;
+}
+.delete-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+.delete-btn:disabled { opacity:.35; cursor:not-allowed; }
+.action-buttons { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .badge:disabled { opacity:.55; cursor:not-allowed; filter:none; }
 
 /* ─── MODAL ─── */
@@ -643,6 +658,7 @@ const LOCAL_CLASS = {
 const ACESSOS = {
   'Upa1234@':  { nome: 'UPA', localEditavel: 'UPA', somenteLeitura: false, admin: false },
   'MM1234@':   { nome: 'Margarita Morales', localEditavel: 'Margarita Morales', somenteLeitura: false, admin: false },
+  'ZL1234@':   { nome: 'HMVGM', localEditavel: 'HMVGM', somenteLeitura: false, admin: false },
   'ZL1234':    { nome: 'HMVGM', localEditavel: 'HMVGM', somenteLeitura: false, admin: false },
   'Samu1234@': { nome: 'SAMU', localEditavel: null, somenteLeitura: true, admin: false },
   'NirRue321@': { nome: 'NIR/RUE', localEditavel: 'TODOS', somenteLeitura: false, admin: true }
@@ -782,6 +798,7 @@ function mapLeito(row) {
     l: row.leito,
     o: row.ocupacao || 'Leito Disponível',
     p: row.paciente || '',
+    idade: row.idade || extrairIdadePaciente(row.paciente || ''),
     ac: row.acompanhante || 'Não',
     obs: row.observacoes || '',
     previsto: false
@@ -799,6 +816,7 @@ function criarLeitosPrevistos(local) {
     l: leito,
     o: 'Leito Disponível',
     p: '',
+    idade: '',
     ac: 'Não',
     obs: '',
     previsto: true,
@@ -1034,7 +1052,7 @@ function render() {
         <td class="td-pac">${pac}</td>
         <td style="text-align:center">${ac}</td>
         <td class="td-obs">${obs}</td>
-        <td><button class="edit-btn" onclick="openModal(${r.idx})" title="${titleEdit}" ${disabledAttr}>✎</button></td>
+        <td style="white-space:nowrap"><span class="action-buttons"><button class="delete-btn" onclick="limparLeito(${r.idx})" title="Limpar leito" ${disabledAttr}>✕</button><button class="edit-btn" onclick="openModal(${r.idx})" title="${titleEdit}" ${disabledAttr}>✎</button></span></td>
       </tr>`;
     }).join('');
 
@@ -1052,7 +1070,7 @@ function render() {
           <th>Paciente</th>
           <th style="width:80px;text-align:center">Acomp.</th>
           <th>Observações</th>
-          <th style="width:50px"></th>
+          <th style="width:90px"></th>
         </tr></thead>
         <tbody>${trs}</tbody>
       </table>
@@ -1067,6 +1085,7 @@ async function criarRegistroPrevisto(leitoAtual, payloadExtra = {}) {
     leito: leitoAtual.l,
     ocupacao: leitoAtual.o || 'Leito Disponível',
     paciente: leitoAtual.p || '',
+    idade: extrairIdadePaciente(leitoAtual.p || ''),
     acompanhante: leitoAtual.ac || 'Não',
     observacoes: leitoAtual.obs || '',
     ...payloadExtra
@@ -1161,6 +1180,7 @@ async function saveEdit() {
   const payload = {
     ocupacao: document.getElementById('edit-occ').value,
     paciente: montarPaciente(document.getElementById('edit-pac').value, document.getElementById('edit-idade').value),
+    idade: document.getElementById('edit-idade').value,
     acompanhante: document.getElementById('edit-ac').value,
     observacoes: document.getElementById('edit-obs').value
   };
@@ -1191,8 +1211,63 @@ async function saveEdit() {
     ...leitoAtual,
     o: payload.ocupacao,
     p: payload.paciente,
+    idade: payload.idade,
     ac: payload.acompanhante,
     obs: payload.observacoes
+  };
+
+  document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+  closeModal();
+  render();
+}
+
+
+async function limparLeito(i) {
+  const leitoAtual = data[i];
+
+  if (!podeEditarLeito(leitoAtual)) {
+    avisoSemPermissao();
+    return;
+  }
+
+  if (!confirm('Deseja limpar os dados deste leito e deixá-lo como disponível?')) return;
+
+  const payload = {
+    ocupacao: 'Leito Disponível',
+    paciente: '',
+    idade: '',
+    acompanhante: 'Não',
+    observacoes: ''
+  };
+
+  if (leitoAtual.previsto) {
+    const novoRegistro = await criarRegistroPrevisto(leitoAtual, payload);
+    if (!novoRegistro) return;
+
+    data[i] = novoRegistro;
+    document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
+    render();
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('leitos')
+    .update(payload)
+    .eq('id', leitoAtual.id);
+
+  if (error) {
+    console.error('Erro ao limpar leito:', error);
+    alert('Erro ao limpar leito no Supabase.');
+    return;
+  }
+
+  data[i] = {
+    ...leitoAtual,
+    o: 'Leito Disponível',
+    p: '',
+    idade: '',
+    ac: 'Não',
+    obs: ''
   };
 
   document.getElementById('data-hora').textContent = 'Atualizado em ' + now();
@@ -1212,6 +1287,7 @@ async function addLeito(local, setor) {
     leito: nomeLeito.trim(),
     ocupacao: 'Leito Disponível',
     paciente: '',
+    idade: '',
     acompanhante: 'Não',
     observacoes: ''
   };
@@ -1257,6 +1333,7 @@ async function removeLeito(local, setor) {
       leito,
       ocupacao: 'Leito Disponível',
       paciente: '',
+      idade: '',
       acompanhante: 'Não',
       observacoes: REMOVIDO_MARKER
     });
